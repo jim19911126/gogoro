@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gogoro 安時費用試算器</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 2rem;
+      background: #f9f9f9;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    input, select {
+      font-size: 1rem;
+      padding: 0.5rem;
+      margin: 0.25rem 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    label {
+      display: block;
+      margin-top: 0.75rem;
+    }
+    table {
+      margin-top: 1rem;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: center;
+    }
+    th {
+      background-color: #eee;
+    }
+    #extraResult {
+      margin-top: 1rem;
+      background: #fff3cd;
+      padding: 1rem;
+      border: 1px solid #ffeeba;
+    }
+  </style>
+</head>
+<body>
+  <h1>Gogoro 安時費用試算器</h1>
+
+  <label for="planSelect">請選擇你的資費方案：</label>
+  <select id="planSelect">
+    <option value="319">$319 自由省</option>
+    <option value="519" selected>$519 自由省</option>
+    <option value="819">$819 自由省</option>
+  </select>
+
+  <label for="kmInput">請輸入預估騎乘距離（公里）：</label>
+  <input type="number" id="kmInput" min="0" placeholder="例如：400">
+
+  <label for="efficiencyInput">請輸入平均每安時可騎乘公里數（例如 1.16）：</label>
+  <input type="number" step="0.01" id="efficiencyInput" min="0.1" placeholder="例如：1.16">
+
+<label for="discountSelect">平均換電時段：</label>
+<select id="discountSelect">
+  <option value="0.8">00:00–05:00（8 折）</option>
+  <option value="0.95">05:00–10:00（95 折）</option>
+  <option value="0.9">10:00–16:00（9 折）</option>
+  <option value="0.95">16:00–21:00（95 折）</option>
+  <option value="0.9">21:00–00:00（9 折）</option>
+</select>
+
+  <label for="deferredInput">上月遞延安時（如無可填 0）：</label>
+  <input type="number" step="0.1" id="deferredInput" min="0" placeholder="例如：6.1">
+
+  <button onclick="calculate()">試算</button>
+
+  <div id="result"></div>
+  <div id="extraResult"></div>
+
+  <script>
+    function calculate() {
+      const km = parseFloat(document.getElementById('kmInput').value);
+      const kmPerAh = parseFloat(document.getElementById('efficiencyInput').value);
+      const deferredAh = parseFloat(document.getElementById('deferredInput').value);
+      const discount = parseFloat(document.getElementById('discountSelect').value);
+
+      if (isNaN(km) || km <= 0 || isNaN(kmPerAh) || kmPerAh <= 0 || isNaN(deferredAh) || deferredAh < 0) {
+        document.getElementById('result').innerHTML = '<p style="color:red">請輸入所有有效的數值。</p>';
+        document.getElementById('extraResult').innerHTML = '';
+        return;
+      }
+
+      const costPerAh = 2.3 * discount;
+      const ah = km / kmPerAh;
+      const batteryFee = ah * costPerAh;
+
+      const selectedPlanValue = parseInt(document.getElementById('planSelect').value);
+      const selectedPlan = {
+        319: { name: '$319 資費', baseFee: 319, rebate: 200 },
+        519: { name: '$519 資費', baseFee: 519, rebate: 600 },
+        819: { name: '$819 資費', baseFee: 819, rebate: 1200 }
+      }[selectedPlanValue];
+
+      const extraBatteryFee = Math.max(0, batteryFee - selectedPlan.rebate);
+      const total = selectedPlan.baseFee + extraBatteryFee;
+
+      let resultHTML = `
+        <p><strong>預估使用電池量：</strong> ${ah.toFixed(1)} Ah</p>
+        <p><strong>方案：</strong> ${selectedPlan.name}</p>
+        <p><strong>總費用：</strong> ${total.toFixed(1)} 元</p>
+      `;
+      document.getElementById('result').innerHTML = resultHTML;
+
+      // 通用額外分析（適用於任一選定方案）
+      {
+        const basePlanLimit = selectedPlan.rebate / costPerAh; // 可折抵的安時（不含遞延）
+        const actualLimit = basePlanLimit + deferredAh; // 含遞延後的可用安時
+        const overuseAh = ah - actualLimit;
+        const extraFee = overuseAh > 0 ? overuseAh * costPerAh : 0;
+        const totalForSelected = selectedPlan.baseFee + extraFee;
+
+        let extraText = `
+          <p><strong>方案分析：</strong></p>
+          <ul>
+            <li>你的預估用量為 <strong>${ah.toFixed(1)} Ah</strong></li>
+            <li>${selectedPlan.name} 本月含遞延額度後可用 <strong>${actualLimit.toFixed(2)} Ah</strong></li>
+        `;
+
+        if (overuseAh > 0) {
+          extraText += `
+            <li style="color:red">你將超過額度 <strong>${overuseAh.toFixed(2)} Ah</strong>，需額外支付 <strong>${extraFee.toFixed(2)} 元</strong></li>
+            <li>本月選擇此方案後總費用約為 <strong>${totalForSelected.toFixed(2)} 元</strong></li>
+          `;
+        } else {
+          // 若為高階方案（例如 $819）且用量遠低於額度，提示浪費金額或剩餘量
+          if (selectedPlan.baseFee >= 819) {
+            const wastedAh = actualLimit - ah;
+            const wastedValue = wastedAh * costPerAh;
+            extraText += `
+              <li style="color:green">不會超過額度，僅需支付月租費 <strong>${selectedPlan.baseFee}</strong></li>
+              <li>預估本月剩餘折抵量為 <strong>${wastedAh.toFixed(1)} Ah</strong>（約等於 <strong>${wastedValue.toFixed(1)} 元</strong> 的折抵金額）</li>
+            `;
+          } else {
+            extraText += `<li style="color:green">不會超過額度，僅需支付月租費 <strong>${selectedPlan.baseFee}</strong></li>`;
+          }
+        }
+
+        extraText += '</ul>';
+        document.getElementById('extraResult').innerHTML = extraText;
+
+        // 加入費用比較分析建議
+        const allPlans = [
+          { name: '$319 資費', baseFee: 319, rebate: 200 },
+          { name: '$519 資費', baseFee: 519, rebate: 600 },
+          { name: '$819 資費', baseFee: 819, rebate: 1200 }
+        ];
+
+        let bestPlan = null;
+        let minTotal = Infinity;
+
+        allPlans.forEach(plan => {
+          const totalLimit = plan.rebate / costPerAh + deferredAh;
+          const over = Math.max(0, ah - totalLimit);
+          const totalCost = plan.baseFee + (over * costPerAh);
+          if (totalCost < minTotal) {
+            minTotal = totalCost;
+            bestPlan = { name: plan.name, cost: totalCost.toFixed(1) };
+          }
+        });
+
+        let adviceText = `<p style="margin-top:1rem;"><strong>最划算方案建議：</strong><br>`;
+        if (selectedPlan.name !== bestPlan.name) {
+          adviceText += `依據你本月的預估用量，選擇 <strong>${bestPlan.name}</strong>將會最省，只需約 <strong>${bestPlan.cost} 元</strong>。`;
+        } else {
+          adviceText += `你目前選擇的 <strong>${selectedPlan.name}</strong>已是最划算的選擇（約 ${bestPlan.cost} 元）。`;
+        }
+        adviceText += '</p>';
+
+        document.getElementById('extraResult').innerHTML += adviceText;
+      }
+    }
+  </script>
+</body>
+</html>
