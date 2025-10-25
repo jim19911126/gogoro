@@ -68,6 +68,7 @@
 
     <label for="efficiencyInput">請輸入平均每安時可騎乘公里數（例如 1.16）：</label>
     <input type="number" step="0.01" id="efficiencyInput" min="0.1" placeholder="例如：1.16">
+
   </div>
 
   <div id="ahInputGroup" style="display:none;">
@@ -147,8 +148,6 @@
       } else {
         resultHTML += `<p><strong>預估使用電池量：</strong> ${ah.toFixed(1)} Ah</p>`;
       }
-      resultHTML += `<p><strong>方案：</strong> ${selectedPlan.name}</p>`;
-      resultHTML += `<p><strong>總費用：</strong> ${total.toFixed(1)} 元</p>`;
       document.getElementById('result').innerHTML = resultHTML;
 
       // 通用額外分析（適用於任一選定方案）
