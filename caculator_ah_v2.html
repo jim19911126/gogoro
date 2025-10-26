@@ -66,8 +66,8 @@
     <label for="kmInput">請輸入預估騎乘距離（公里）：</label>
     <input type="number" id="kmInput" min="0" placeholder="例如：400">
 
-    <label for="efficiencyInput">請輸入平均每安時可騎乘公里數（例如 1.16）：</label>
-    <input type="number" step="0.01" id="efficiencyInput" min="0.1" placeholder="例如：1.16">
+    <label for="efficiencyInput">請輸入平均每安時可騎乘公里數：</label>
+    <input type="number" step="0.01" id="efficiencyInput" min="0.1" placeholder="不確定請填1">
 
   </div>
 
@@ -85,8 +85,8 @@
   <option value="0.9">21:00–00:00（9 折）</option>
 </select>
 
-  <label for="deferredInput">上月遞延安時（如無可填 0）：</label>
-  <input type="number" step="0.1" id="deferredInput" min="0" placeholder="例如：6.1">
+  <label for="deferredInput">上月遞延安時：</label>
+  <input type="number" step="0.1" id="deferredInput" min="0" placeholder="若無請填0">
 
   <button onclick="calculate()">試算</button>
 
