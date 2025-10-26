@@ -125,9 +125,12 @@
         return;
       }
 
-      const costPerAh = 2.3 * discount;
-      const rawFee = ah * 2.3;
-      const batteryFee = rawFee * discount;
+      // 新費用計算邏輯
+      const costPerAh = 2.3;
+      const rewardAh = ah * (1 - discount); // 回饋安時
+      // deferredAh 已於上方 parse
+      const payableAh = Math.max(0, ah - rewardAh - deferredAh); // 實際需付費安時
+      const batteryFee = payableAh * costPerAh; // 折抵前金額
 
       const selectedPlanValue = parseInt(document.getElementById('planSelect').value);
       const selectedPlan = {
@@ -140,22 +143,27 @@
       const total = selectedPlan.baseFee + extraBatteryFee;
 
       let resultHTML = '';
-      if (mode === 'ah') {
-        // 新增：顯示「實際使用電池量」與「預估折扣後計算安時」
-        const discountedAh = ah * discount;
-        resultHTML += `<p><strong>實際使用電池量：</strong> ${ah.toFixed(1)} Ah</p>`;
-        resultHTML += `<p><strong>預估折扣後計算安時：</strong> ${discountedAh.toFixed(1)} Ah</p>`;
-      } else {
-        resultHTML += `<p><strong>預估使用電池量：</strong> ${ah.toFixed(1)} Ah</p>`;
-      }
+      // 統一顯示資訊
+      resultHTML += `<p><strong>本月使用量：</strong> ${ah.toFixed(1)} Ah</p>`;
+      resultHTML += `<p><strong>回饋電量：</strong> ${rewardAh.toFixed(1)} Ah</p>`;
+      resultHTML += `<p><strong>遞延電量：</strong> ${deferredAh.toFixed(1)} Ah</p>`;
+      resultHTML += `<p><strong>實際需付費電量：</strong> ${payableAh.toFixed(1)} Ah</p>`;
+      resultHTML += `<p><strong>電池費用：</strong> ${batteryFee.toFixed(2)} 元</p>`;
+      resultHTML += `<p><strong>超出折抵金：</strong> ${extraBatteryFee.toFixed(2)} 元</p>`;
+      resultHTML += `<p><strong>本月總費用：</strong> ${total.toFixed(2)} 元</p>`;
       document.getElementById('result').innerHTML = resultHTML;
 
       // 通用額外分析（適用於任一選定方案）
       {
-        const basePlanLimit = selectedPlan.rebate / costPerAh; // 可折抵的安時（不含遞延）
-        const actualLimit = basePlanLimit + deferredAh; // 含遞延後的可用安時
-        const overuseAh = ah - actualLimit;
-        const extraFee = overuseAh > 0 ? overuseAh * costPerAh : 0;
+        const costPerAh = 2.3;
+        const rewardAh = ah * (1 - discount);
+        const payableAh = Math.max(0, ah - rewardAh - deferredAh);
+
+        const basePlanLimit = selectedPlan.rebate / costPerAh;
+        const actualLimit = basePlanLimit + rewardAh + deferredAh; // 可用額度應含回饋與遞延
+        const overuseAh = Math.max(0, ah - actualLimit);
+        const batteryFeeForSelected = payableAh * costPerAh;
+        const extraFee = Math.max(0, batteryFeeForSelected - selectedPlan.rebate);
         const totalForSelected = selectedPlan.baseFee + extraFee;
 
         let extraText = `
@@ -198,9 +206,13 @@
         let minTotal = Infinity;
 
         allPlans.forEach(plan => {
-          const totalLimit = plan.rebate / costPerAh + deferredAh;
-          const over = Math.max(0, ah - totalLimit);
-          const totalCost = plan.baseFee + (over * costPerAh);
+          const basePlanLimit = plan.rebate / costPerAh;
+          const actualLimit = basePlanLimit + rewardAh + deferredAh;
+          const overuseAh = Math.max(0, ah - actualLimit);
+          const payableAhPlan = Math.max(0, ah - rewardAh - deferredAh);
+          const batteryFee = payableAhPlan * costPerAh;
+          const extraFee = Math.max(0, batteryFee - plan.rebate);
+          const totalCost = plan.baseFee + extraFee;
           if (totalCost < minTotal) {
             minTotal = totalCost;
             bestPlan = { name: plan.name, cost: totalCost.toFixed(1) };
